@@ -305,7 +305,7 @@ def get_trainer_kwargs(
                 num_layers=int(os.getenv("AXLEARN_NUM_LAYERS", 16)),
                 hidden_dim=2048,
                 num_heads=32,
-                num_kv_heads=max(num_kv_heads, int(os.getenv("AXLEARN_TP_DEGREE", 4))),
+                num_kv_heads=max(num_kv_heads, int(os.getenv("AXLEARN_TP_DEGREE", 4))) if num_kv_heads else None,
                 ffn_dim=8192,
                 rope_theta=rope_theta,
                 shared_lm_head=True,
