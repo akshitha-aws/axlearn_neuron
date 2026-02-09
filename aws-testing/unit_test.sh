@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -e
-sudo rmmod neuron; sudo modprobe neuron
+# Skip kernel module reload in Kaizen (containerized) environment
+if [ -z "${WORKLOAD_OUTPUT_RW}" ]; then
+    sudo rmmod neuron; sudo modprobe neuron
+fi
 if [ -z "$VENV_NAME" ]; then
 	VENV_NAME=../jaxmoe
 fi
@@ -58,7 +61,7 @@ export NEURON_RT_ENABLE_INTERNODE_EXECUTION_BARRIER=1
 # Neuron collectives flag
 export FI_LOG_LEVEL="warn"
 export OFI_NCCL_PROTOCOL=RDMA
-export LD_LIBRARY_PATH="/opt/amazon/efa/lib/"
+export LD_LIBRARY_PATH="/opt/amazon/efa/lib/:${LD_LIBRARY_PATH}"
 export FI_EFA_USE_DEVICE_RDMA="1"
 export FI_PROVIDER="efa"
 export FI_EFA_FORK_SAFE=1
