@@ -11,8 +11,9 @@ fi
 
 # Generate unique ID for this test run
 id=$(date +"%Y%m%d_%H%M%S")
-TEST_LOGDIR=test_artifacts/$id
-GOLDENS_DIR=test_goldens/$id
+# Use Kaizen env vars if set, otherwise generate defaults
+TEST_LOGDIR=${KAIZEN_TEST_LOG_DIR:-test_artifacts/$id}
+GOLDENS_DIR=${KAIZEN_GOLDENS_DIR:-test_goldens/$id}
 JAX_CC_DIR=""
 
 # Test execution function
