@@ -312,8 +312,8 @@ def get_trainer_kwargs(
                 flash_attention=flash_attention,
             ),
             learner_kwargs=dict(peak_lr=3e-4, weight_decay=0.1),
-            max_sequence_length=max_sequence_length,
-            train_batch_size=train_batch_size,
+            max_sequence_length=2048,
+            train_batch_size=int(os.getenv("AXLEARN_TRAIN_BATCH_SIZE", train_batch_size)),
             max_step=max_step,
             mesh_shape=mesh_shape_from_axes(data=-1, fsdp=8),
             mesh_rules=(
