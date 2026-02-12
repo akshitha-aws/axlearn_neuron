@@ -49,7 +49,7 @@ sudo apt-get install -y google-perftools
 # Binaries to use:
 ###
 
-ENV_DROP_DIR=${1:-/shared/akshiaws/jul-end-artifacts}
+ENV_DROP_DIR=${1:-/fsx/akshiaws/jul-end-artifacts}
 
 RUNTIME=$ENV_DROP_DIR/aws-neuronx-runtime-lib-*.deb
 COLLECTIVES=$ENV_DROP_DIR/aws-neuronx-collectives-*.deb

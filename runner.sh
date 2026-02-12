@@ -56,34 +56,48 @@ RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
-	export NEURON_FSDP_REPEATED=1
 	export NEURON_FSDP_REPEATED_CC_PIPELINING=1
+	export NEURON_FSDP_REPEATED=1 # For RepeatedTransformerLayer
 	export NEURON_INTERNAL_CPU_NUM_THREADS=1
 	# ,neuron-token-threading-repeated
-	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
+	export NEURON_FSDP_REPEATED_CC_PIPELINING=1 #enables pipelining
+	
+	#export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
+	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives" # including two more passes
+
+	export NEURON_FSDP_NUM_LAYER_COALESCE=-1 # coalesce all layers when RepeatedTransformerLayer is used
+	export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=2
+	export NEURON_DISABLE_MOVEMENT_OF_SLICE_FROM_PARAM=1
+
 else
 	# cancel-all-gather-dynamic-slice-2d
 	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives"
-	export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=2
-	export NEURON_FSDP=1
+	export NEURON_FSDP=1 # For StackedTransformerLayer
 	if [ -n "$CUSTOM_TAG_rsshift" ]; then
 		export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=$CUSTOM_TAG_rsshift
 	else
 		# unset
-		export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=3
+		export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=2
 	fi
-	export NEURON_FSDP_NUM_LAYER_COALESCE=-1
+	export NEURON_FSDP_NUM_LAYER_COALESCE=1
 fi
+
 # 10 also was fast enough for a particular set of nodes
 # export NEURON_REMAT_LARGE_BROADCAST_MIN_SIZE_IN_MB=100
 export NEURON_COLLECTIVE_PERMUTE_TO_ALL_GATHER=1
 export NEURON_ENABLE_INT_MATMUL_DOWNCAST=1
-export NEURON_FSDP_CC_MULTISTREAM=1
+export NEURON_FSDP_CC_MULTISTREAM=1 #enables tp and fsdp collectives on different streams
+export NEURON_WHILE_LOOP_UNROLL=1
 export NEURON_RUN_TRIVIAL_COMPUTATION_ON_CPU=1
 export NEURON_HLO_ANALYZER=1
+export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=1
+
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_proto"
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_text --xla_dump_to=${HLO_DUMP_PATH} --xla_dump_hlo_pass_re='.*'"
 
+export NEURON_RT_LOCAL_CORE_DUMP_DIRECTORY="" # critical to get the profiles dumped
+export AXLEARN_PROFILE_MODE="tracerun"
+export PROFILE_JOB_NAME=fuji_ntff
 
 # Neuron runtime flags
 export NEURON_SCRATCHPAD_PAGE_SIZE=1024
@@ -117,9 +131,12 @@ export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --enable-mixed-precision-accumulation
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} -O1"
 
 
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --tensorizer-options='--enable-hoist-fsdp-collectives'"
+export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --tensorizer-options='--enable-hoist-fsdp-collectives --enable-d2d-pf-transpose-kernel'"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --auto-cast=none"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --hbm-scratchpad-page-size=1024"
+
+export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-enable-dge-levels spill_reload --internal-backend-options=' --spill-reload-dmas-use-swdge '"
+export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --dump=${NEURON_DUMP_PATH}"
 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--recursive-layer-det=false --dump-after-to-file=pre-par-pipe-end,post-par-pipe-begin --remat-rope=false --verify-hlo'"
