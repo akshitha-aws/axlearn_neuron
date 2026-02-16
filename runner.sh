@@ -4,6 +4,22 @@ set +e
 # Reload Driver 
 sudo rmmod neuron; sudo modprobe neuron
 
+./setup_node.sh
+./efa_setup.sh
+
+export AXLEARN_NUM_LAYERS=4
+export AXLEARN_REMAT_LAYER=selective
+export AXLEARN_MODEL_NAME="fuji-70B-v2-flash"
+export AXLEARN_TP_DEGREE=4
+# export AXLEARN_FSDP_DEGREE=128 (fsdp is set to -1)
+export AXLEARN_TRAIN_BATCH_SIZE=16
+export AXLEARN_USE_BLOCKWISE=1
+export AXLEARN_MAX_SEQUENCE_LENGTH=4096
+
+# expects the env to be at ../$VENV_NAME
+VENV_NAME=jaxmoe2
+AXLEARN_REPEATED=1
+
 # Neuron env vars for distributed training based on SLURM
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 if [ -z "$SLURM_JOB_NODELIST" ]; then
@@ -77,9 +93,8 @@ export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=1
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_proto"
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_text --xla_dump_to=${HLO_DUMP_PATH} --xla_dump_hlo_pass_re='.*'"
 
-export NEURON_RT_LOCAL_CORE_DUMP_DIRECTORY="" # critical to get the profiles dumped
-export AXLEARN_PROFILE_MODE="tracerun"
-export PROFILE_JOB_NAME=fuji_ntff
+# export NEURON_RT_LOCAL_CORE_DUMP_DIRECTORY="" # critical to get the profiles dumped
+# export PROFILE_JOB_NAME=fuji_ntff
 
 # Neuron runtime flags
 export NEURON_SCRATCHPAD_PAGE_SIZE=1024
@@ -132,6 +147,7 @@ if [ "$NEURON_FSDP_CC_MULTISTREAM" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--disable-early-opt-barrier-removal'"
 fi
 
+# export AXLEARN_PROFILE_MODE="tracerun"
 if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ] || [ "$FOR_PROFILE" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-compiler-debug-mode=penguin"
 	export XLA_IR_DEBUG=1
@@ -163,13 +179,13 @@ export TF_CPP_VMODULE="neuron_token_threading=2"
 # export JAX_COMPILATION_CACHE_DIR="cache/"
 # mkdir -p ${JAX_COMPILATION_CACHE_DIR}
 
-deactivate || true
+# deactivate || true
 
-if [ -z "$VENV_NAME" ]; then
-	VENV_NAME=jaxmoe
-fi
+# if [ -z "$VENV_NAME" ]; then
+# 	VENV_NAME=jaxmoe2
+# fi
 
-source ../$VENV_NAME/bin/activate
+# source ../$VENV_NAME/bin/activate
 
 echo 'Artifacts path' $TEST_ARTIFACTS_PATH
 
@@ -186,21 +202,21 @@ if [ $SLURM_PROCID -eq 0 ]; then
 	printenv | grep CUSTOM_TAG | tee -a ${TEST_ARTIFACTS_PATH}/env.txt || true
 	which python
 fi
-# TC MALLOC HACK
-LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
+# # TC MALLOC HACK
+# LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
  
-if [ -n "$LIBTCMALLOC" ]; then
-	# Create a symbolic link to the found libtcmalloc version
-	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
-	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
+# if [ -n "$LIBTCMALLOC" ]; then
+# 	# Create a symbolic link to the found libtcmalloc version
+# 	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
+# 	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
 		     
-		       # Export LD_PRELOAD
-	export LD_PRELOAD=/usr/lib/libtcmalloc.so
-	echo "LD_PRELOAD set to: $LD_PRELOAD"
-else
-	echo "Error: libtcmalloc.so not found"
-	exit 1
-fi
+# 		       # Export LD_PRELOAD
+# 	export LD_PRELOAD=/usr/lib/libtcmalloc.so
+# 	echo "LD_PRELOAD set to: $LD_PRELOAD"
+# else
+# 	echo "Error: libtcmalloc.so not found"
+# 	exit 1
+# fi
 
 OUTPUT_DIR="${TEST_ARTIFACTS_PATH}/axlearn_out"
 mkdir -p ${OUTPUT_DIR}
@@ -293,7 +309,7 @@ else
 
 	if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ]; then
 		if [ $SLURM_PROCID -eq 0 ]; then
-			bash upload_profile.sh $SLURM_JOB_ID ${PROFILE_JOB_NAME}_${SLURM_JOB_ID}
+			bash ./upload_profile.sh $SLURM_JOB_ID ${PROFILE_JOB_NAME}_${SLURM_JOB_ID}
 		fi
 	fi
 	./get_memory_split.sh
