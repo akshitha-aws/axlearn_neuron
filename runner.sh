@@ -4,22 +4,21 @@ set +e
 # Reload Driver 
 sudo rmmod neuron; sudo modprobe neuron
 
-/shared/akshiaws/axlearn/setup_node.sh
-/shared/akshiaws/axlearn/efa_setup.sh
+./setup_node.sh
+./efa_setup.sh
 
-export AXLEARN_NUM_LAYERS=10
+export AXLEARN_NUM_LAYERS=4
 export AXLEARN_REMAT_LAYER=selective
 export AXLEARN_MODEL_NAME="fuji-70B-v2-flash"
 export AXLEARN_TP_DEGREE=4
-# export AXLEARN_FSDP_DEGREE=128
+# export AXLEARN_FSDP_DEGREE=128 (fsdp is set to -1)
 export AXLEARN_TRAIN_BATCH_SIZE=16
-AXLEARN_USE_BLOCKWISE=1
+export AXLEARN_USE_BLOCKWISE=1
 export AXLEARN_MAX_SEQUENCE_LENGTH=4096
 
-# set the env to use here
-# it expects the env to be at ../$VENV_NAME
+# expects the env to be at ../$VENV_NAME
 VENV_NAME=jaxmoe
-AXLEARN_REPEATED=0
+AXLEARN_REPEATED=1
 
 # Neuron env vars for distributed training based on SLURM
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
@@ -95,9 +94,8 @@ export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=1
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_proto"
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_text --xla_dump_to=${HLO_DUMP_PATH} --xla_dump_hlo_pass_re='.*'"
 
-export NEURON_RT_LOCAL_CORE_DUMP_DIRECTORY="" # critical to get the profiles dumped
-export AXLEARN_PROFILE_MODE="tracerun"
-export PROFILE_JOB_NAME=fuji_ntff
+# export NEURON_RT_LOCAL_CORE_DUMP_DIRECTORY="" # critical to get the profiles dumped
+# export PROFILE_JOB_NAME=fuji_ntff
 
 # Neuron runtime flags
 export NEURON_SCRATCHPAD_PAGE_SIZE=1024
@@ -150,6 +148,7 @@ if [ "$NEURON_FSDP_CC_MULTISTREAM" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--disable-early-opt-barrier-removal'"
 fi
 
+# export AXLEARN_PROFILE_MODE="tracerun"
 if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ] || [ "$FOR_PROFILE" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-compiler-debug-mode=penguin"
 	export XLA_IR_DEBUG=1
@@ -311,7 +310,7 @@ else
 
 	if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ]; then
 		if [ $SLURM_PROCID -eq 0 ]; then
-			bash upload_profile.sh $SLURM_JOB_ID ${PROFILE_JOB_NAME}_${SLURM_JOB_ID}
+			bash ./upload_profile.sh $SLURM_JOB_ID ${PROFILE_JOB_NAME}_${SLURM_JOB_ID}
 		fi
 	fi
 	./get_memory_split.sh
