@@ -97,9 +97,9 @@ VOCAB_SIZE = 32 * 1024
 
 MAX_SEQUENCE_LENGTH = {
     "test": 8192,
-    "Switch-Base": 8192,
+    "Switch-Base": int(os.getenv("AXLEARN_MAX_SEQUENCE_LENGTH", 8192)),
     "Switch-Large": 8192,
-    "Switch-XXL": 8192,
+    "Switch-XXL": int(os.getenv("AXLEARN_MAX_SEQUENCE_LENGTH", 8192)),
     "Mistral-toy": 256,
     "Mistral-8x7B": 8192,
     "Mistral-8x20B": 8192,
@@ -692,10 +692,7 @@ def get_trainer_kwargs(
                 num_groups=num_groups,
                 ffn_structure="hybridnorm",
                 # MoE layer every 2 layers.
-                ffn_layer_types=[
-                    "dense",
-                    "sparse",
-                ],
+                ffn_layer_types=get_ffn_layer_types(),
                 outer_batch_size=get_outer_batch_from_mesh(MESH_AXIS_NAMES, MOE_OUTER_BATCH_AXIS_NAMES, neuron_mesh),
             ),
             learner_kwargs=dict(peak_lr=0.01, weight_decay=1e-4, lr_warmup_steps=5_000),

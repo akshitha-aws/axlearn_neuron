@@ -10,14 +10,25 @@ import neuronxcc.nki.language as nl
 from jax import custom_vjp
 from jax._src.mesh import thread_resources
 
-from neuronxcc.nki._private_kernels.blockwise_mm import (
-        blockwise_mm_selective_cp as blockwise_mm_nki,
+# from neuronxcc.nki._private_kernels.blockwise_mm import 
+from neuronxcc.nki._pre_prod_kernels.blockwise_mm import (
+    blockwise_mm as blockwise_mm_nki,
+        # blockwise_mm_selective_cp as blockwise_mm_nki,
         check_blockwise_mm_kernel_compatibility,
-    )
-from neuronxcc.nki._private_kernels.blockwise_mm_bwd import (
+) # this is old FE
+
+# # from neuronxcc.nki._private_kernels.blockwise_mm_bwd import
+# from neuronxcc.nki._pre_prod_kernels.experimental.blockwise_mm.klir_blockwise_mm_bwd import (
+#     blockwise_mm_bwd_selective_cp as blockwise_mm_bwd_nki,
+#     # check_blockwise_mm_bwd_kernel_compatibility,
+# ) #this is new FE
+
+# from neuronxcc.nki._private_kernels.blockwise_mm_bwd import
+from neuronxcc.nki._pre_prod_kernels.experimental.blockwise_mm.old_blockwise_mm_bwd import (
     blockwise_mm_bwd_selective_cp as blockwise_mm_bwd_nki,
     # check_blockwise_mm_bwd_kernel_compatibility,
-)
+) #this is old FE
+
 from neuronxcc.nki.compiler.backends.neuron.dimensions import VNC
 import neuronxcc.nki as nki
 from dataclasses import dataclass
@@ -122,8 +133,8 @@ def _blockwise_mm_fwd(
         down_proj_weight,
         token_position_to_id,
         block_to_expert,
-        block_size=block_size,
-        skip_dma=SkipMode(False, False)
+        block_size,
+        SkipMode(False, False)
     )
 
     down_activations = checkpoint_name(down_activations, "blockwise.down_activations")
@@ -159,8 +170,8 @@ def _blockwise_mm_bwd(
             token_position_to_id.astype(jnp.int32),
             block_to_expert.astype(jnp.int32),
             grad_output,
-            block_size=block_size,
-            skip_dma=SkipMode(False, False),
+            block_size,
+            SkipMode(False, False),
             ktype=0 if block_to_expert.shape[-1] == down_proj_weight.shape[0] else 1,
         )
         sliced_tensor = hidden_states_grad[:-1,:]
