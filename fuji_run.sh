@@ -17,7 +17,7 @@ export AXLEARN_USE_BLOCKWISE=1
 export AXLEARN_MAX_SEQUENCE_LENGTH=4096
 
 # expects the env to be at ../$VENV_NAME
-VENV_NAME=jaxmoe2
+VENV_NAME=jaxmoe
 AXLEARN_REPEATED=1
 
 # Neuron env vars for distributed training based on SLURM
@@ -182,7 +182,7 @@ export TF_CPP_VMODULE="neuron_token_threading=2"
 # deactivate || true
 
 # if [ -z "$VENV_NAME" ]; then
-# 	VENV_NAME=jaxmoe2
+# 	VENV_NAME=jaxmoe
 # fi
 
 # source ../$VENV_NAME/bin/activate
@@ -282,19 +282,12 @@ profile() {
 }
 
 if [ "$S3_PROFILE_BASE_PATH" = "" ]; then
-	export S3_PROFILE_BASE_PATH="s3://kaena-tempdata/huilgolr/fs-moe/profiles"
+	export S3_PROFILE_BASE_PATH="s3://kaena-tempdata/akshiaws/fs-moe/profiles"
 fi
 
 if [ "$AXLEARN_PROFILE_MODE" = "capture" ]; then
 	profile $PROFILE_JOB_ID $PROFILE_JOB_NAME $S3_PROFILE_BASE_PATH
 else
-	# MIXTRAL_MOE being
-	# 0 adds dense MLP layers
-	# 1 adds all sparse MLP layers
-	# 2 adds alternating sparse and dense layers
-	# export MIXTRAL_MOE=$1
-	# export NUM_LAYERS=$2
-	# envy-Mistral-${AXLEARN_MODEL_NAME}
 	if [ -e job_explorer/tagger.py ]; then
 		python job_explorer/tagger.py --submit --root_dir ./
 	fi
