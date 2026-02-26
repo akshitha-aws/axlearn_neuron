@@ -88,7 +88,7 @@ import functools
 import math
 from enum import Enum, unique
 from typing import Any, Callable, NamedTuple, Optional, Protocol, Sequence, Union
-
+import os
 import chex
 import jax
 from absl import logging
@@ -1816,11 +1816,16 @@ class MultiheadAttention(BaseLayer):
         q_proj, k_proj, v_proj = self.i_proj(query, query_positions=query_positions, **kv_kwargs)
 
         mesh = thread_resources.env.physical_mesh 
-        if mesh.shape["seq"] > 1:
-            q_proj = with_sharding_constraint(q_proj, PartitionSpec(("data", "fsdp"), ("expert", "seq"), "model", None))
-            k_proj = with_sharding_constraint(k_proj, PartitionSpec(("data", "fsdp"), ("expert", "seq"), "model", None))
-            v_proj = with_sharding_constraint(v_proj, PartitionSpec(("data", "fsdp"), ("expert", "seq"), "model", None))
-
+        if mesh.shape["seq"] > 1 and os.getenv('EP_WITHIN_NODE', '1') == '1':
+            CP_AXIS = ("expert", "seq")
+        elif mesh.shape["seq"] > 1:
+            CP_AXIS = "seq"
+        else:
+            CP_AXIS = None
+        q_proj = with_sharding_constraint(q_proj, PartitionSpec(("data", "fsdp"), CP_AXIS, "model", None))
+        k_proj = with_sharding_constraint(k_proj, PartitionSpec(("data", "fsdp"), CP_AXIS, "model", None))
+        v_proj = with_sharding_constraint(v_proj, PartitionSpec(("data", "fsdp"), CP_AXIS, "model", None))
+         
         if mode == ForwardMode.FORWARD:
             new_cached_states = dict()
             key_positions = jnp.arange(k_proj.shape[1])[None]
@@ -1882,10 +1887,9 @@ class MultiheadAttention(BaseLayer):
             v_proj=v_proj,
             attention_logit_biases=attention_logit_biases,
         )
-        
         if mesh.shape["seq"] > 1:
-            context = with_sharding_constraint(context, PartitionSpec(("data", "fsdp"), ("expert", "seq"), "model", None))
-            probs = with_sharding_constraint(probs, PartitionSpec(("data", "fsdp"), "model", ("expert", "seq"), None))
+            context = with_sharding_constraint(context, PartitionSpec(("data", "fsdp"), CP_AXIS, "model", None))
+            probs = with_sharding_constraint(probs, PartitionSpec(("data", "fsdp"), "model", CP_AXIS, None))
 
         self.vlog(3, "atten.prob=%s", probs[0, 0, 0, :])
         self.vlog(3, "atten.context=%s", context.sum())
@@ -1893,7 +1897,7 @@ class MultiheadAttention(BaseLayer):
         # [batch, target_length, output_dim].
         o_proj = self.o_proj(context)
         if mesh.shape["seq"] > 1:
-            o_proj = with_sharding_constraint(o_proj, PartitionSpec(("data", "fsdp"), ("expert", "seq"), None))
+            o_proj = with_sharding_constraint(o_proj, PartitionSpec(("data", "fsdp"), CP_AXIS, None))
 
         outputs = self._remat_name(o_proj, "o_proj")
         self._add_tensor_stats("o_proj_outputs", outputs)
@@ -2199,7 +2203,8 @@ def compute_gqa_logits(q_proj: Tensor, k_proj: Tensor) -> Tensor:
     logits = jnp.einsum("btkgh,bsk1h->bkgts", q_proj, k_proj)
 
     # [batch, num_heads, target_length, source_length]
-    return jnp.reshape(logits, [*logits.shape[:1], -1, *logits.shape[3:]])
+    final_logits = jnp.reshape(logits, [*logits.shape[:1], -1, *logits.shape[3:]])
+    return final_logits
 
 
 def compute_gqa_context(probs: Tensor, v_proj: Tensor) -> Tensor:
@@ -2801,15 +2806,11 @@ class TransformerAttentionLayer(BaseLayer):
             skip_input = target  # pre-norm: where normalization happens within the residual part.
             norm_target = self.norm(target)
             # b, s/tp, h
-
-            # TODO: remove this
-            # this annotation currently helps with tests
-            mesh = thread_resources.env.physical_mesh
-            if mesh.shape["seq"] > 1:
-                norm_target = with_sharding_constraint(norm_target, PartitionSpec(("data","fsdp"), ("expert", "seq"), None))
+            if os.getenv('EP_WITHIN_NODE', '1') == '1':
+                seq_partition = ("expert", "seq")
             else:
-                norm_target = with_sharding_constraint(norm_target, PartitionSpec(("data","fsdp"), None, None))
-
+                seq_partition = "seq"
+            norm_target = with_sharding_constraint(norm_target, PartitionSpec(("data","fsdp"), seq_partition, None))
             # b,s,h
             atten_state, atten_output = attention_thunk(norm_target)
             # b,s/cp, h
