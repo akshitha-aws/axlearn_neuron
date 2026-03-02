@@ -133,6 +133,9 @@ def get_moe_dim_to_mesh_axis_map(ep_degree_local, tp_degree, cp_degree):
             # doesn't allow tp>1
             EP_AXIS_NAMES = ("expert", "model", "seq")
             TP_AXIS_NAMES = None
+        elif os.getenv('EP_WITHIN_NODE', '1') == '0' and ep_degree_local * tp_degree * cp_degree > 64:
+            EP_AXIS_NAMES = ("expert", "seq")
+            TP_AXIS_NAMES = "model"
         elif ep_degree_local * cp_degree == 16:
             # not used for EP=16 TP=4
             # TODO
@@ -502,7 +505,10 @@ def get_trainer_kwargs(
         # to use default of ("expert", "fsdp", "seq")
         attn_dense_fsdp_axis_names = None
         dense_batch_axis_names = ("data", "fsdp")
-        attn_dense_seq_axis_names = ("seq", "expert")
+        if os.getenv('EP_WITHIN_NODE', '1') == '0':
+            attn_dense_seq_axis_names = "seq"
+        else:
+            attn_dense_seq_axis_names = ("seq", "expert")
     else:
         attn_dense_fsdp_axis_names = attn_dense_seq_axis_names = dense_batch_axis_names = None
     MOE_OUTER_BATCH_AXIS_NAMES = ("data", "fsdp")
@@ -692,10 +698,7 @@ def get_trainer_kwargs(
                 num_groups=num_groups,
                 ffn_structure="hybridnorm",
                 # MoE layer every 2 layers.
-                ffn_layer_types=[
-                    "dense",
-                    "sparse",
-                ],
+                ffn_layer_types=get_ffn_layer_types(),
                 outer_batch_size=get_outer_batch_from_mesh(MESH_AXIS_NAMES, MOE_OUTER_BATCH_AXIS_NAMES, neuron_mesh),
             ),
             learner_kwargs=dict(peak_lr=0.01, weight_decay=1e-4, lr_warmup_steps=5_000),
