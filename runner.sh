@@ -4,6 +4,7 @@ set +e
 # Reload Driver 
 sudo rmmod neuron; sudo modprobe neuron
 
+<<<<<<< HEAD
 ./setup_node.sh
 ./efa_setup.sh
 
@@ -20,6 +21,8 @@ export AXLEARN_MAX_SEQUENCE_LENGTH=4096
 VENV_NAME=jaxmoe
 AXLEARN_REPEATED=1
 
+=======
+>>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
 # Neuron env vars for distributed training based on SLURM
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 if [ -z "$SLURM_JOB_NODELIST" ]; then
@@ -55,47 +58,38 @@ RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
+<<<<<<< HEAD
 	export NEURON_FSDP_REPEATED_CC_PIPELINING=1
 	export NEURON_FSDP_REPEATED=1 # For RepeatedTransformerLayer
+=======
+	export NEURON_FSDP_REPEATED=1
+>>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
 	export NEURON_INTERNAL_CPU_NUM_THREADS=1
 	# ,neuron-token-threading-repeated
-	export NEURON_FSDP_REPEATED_CC_PIPELINING=1 #enables pipelining
-	
-	#export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
-	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives" # including two more passes
-
-	export NEURON_FSDP_NUM_LAYER_COALESCE=-1 # coalesce all layers when RepeatedTransformerLayer is used
-	export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=2
-	export NEURON_DISABLE_MOVEMENT_OF_SLICE_FROM_PARAM=1
-
+	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
 else
 	# cancel-all-gather-dynamic-slice-2d
 	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives"
-	export NEURON_FSDP=1 # For StackedTransformerLayer
+	export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=2
+	export NEURON_FSDP=1
 	if [ -n "$CUSTOM_TAG_rsshift" ]; then
 		export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=$CUSTOM_TAG_rsshift
 	else
 		# unset
-		export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=2
+		export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=3
 	fi
-	export NEURON_FSDP_NUM_LAYER_COALESCE=1
+	export NEURON_FSDP_NUM_LAYER_COALESCE=-1
 fi
-
 # 10 also was fast enough for a particular set of nodes
 # export NEURON_REMAT_LARGE_BROADCAST_MIN_SIZE_IN_MB=100
 export NEURON_COLLECTIVE_PERMUTE_TO_ALL_GATHER=1
 export NEURON_ENABLE_INT_MATMUL_DOWNCAST=1
-export NEURON_FSDP_CC_MULTISTREAM=1 #enables tp and fsdp collectives on different streams
-export NEURON_WHILE_LOOP_UNROLL=1
+export NEURON_FSDP_CC_MULTISTREAM=0
 export NEURON_RUN_TRIVIAL_COMPUTATION_ON_CPU=1
 export NEURON_HLO_ANALYZER=1
-export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=1
-
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_proto"
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_text --xla_dump_to=${HLO_DUMP_PATH} --xla_dump_hlo_pass_re='.*'"
 
-# export NEURON_RT_LOCAL_CORE_DUMP_DIRECTORY="" # critical to get the profiles dumped
-# export PROFILE_JOB_NAME=fuji_ntff
 
 # Neuron runtime flags
 export NEURON_SCRATCHPAD_PAGE_SIZE=1024
@@ -129,12 +123,9 @@ export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --enable-mixed-precision-accumulation
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} -O1"
 
 
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --tensorizer-options='--enable-hoist-fsdp-collectives --enable-d2d-pf-transpose-kernel'"
+export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --tensorizer-options='--enable-hoist-fsdp-collectives'"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --auto-cast=none"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --hbm-scratchpad-page-size=1024"
-
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-enable-dge-levels spill_reload --internal-backend-options=' --spill-reload-dmas-use-swdge '"
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --dump=${NEURON_DUMP_PATH}"
 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--recursive-layer-det=false --dump-after-to-file=pre-par-pipe-end,post-par-pipe-begin --remat-rope=false --verify-hlo'"
@@ -148,7 +139,6 @@ if [ "$NEURON_FSDP_CC_MULTISTREAM" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--disable-early-opt-barrier-removal'"
 fi
 
-# export AXLEARN_PROFILE_MODE="tracerun"
 if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ] || [ "$FOR_PROFILE" = "1" ]; then
 	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-compiler-debug-mode=penguin"
 	export XLA_IR_DEBUG=1
@@ -180,13 +170,19 @@ export TF_CPP_VMODULE="neuron_token_threading=2"
 # export JAX_COMPILATION_CACHE_DIR="cache/"
 # mkdir -p ${JAX_COMPILATION_CACHE_DIR}
 
-# deactivate || true
+deactivate || true
 
+<<<<<<< HEAD
 # if [ -z "$VENV_NAME" ]; then
 # 	VENV_NAME=jaxmoe
 # fi
+=======
+if [ -z "$VENV_NAME" ]; then
+	VENV_NAME=jaxmoe
+fi
+>>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
 
-# source ../$VENV_NAME/bin/activate
+source ../$VENV_NAME/bin/activate
 
 echo 'Artifacts path' $TEST_ARTIFACTS_PATH
 
@@ -204,20 +200,24 @@ if [ $SLURM_PROCID -eq 0 ]; then
 	which python
 fi
 # TC MALLOC HACK
+<<<<<<< HEAD
 # LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
+=======
+LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
+>>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
  
-# if [ -n "$LIBTCMALLOC" ]; then
-# 	# Create a symbolic link to the found libtcmalloc version
-# 	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
-# 	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
+if [ -n "$LIBTCMALLOC" ]; then
+	# Create a symbolic link to the found libtcmalloc version
+	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
+	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
 		     
-# 		       # Export LD_PRELOAD
-# 	export LD_PRELOAD=/usr/lib/libtcmalloc.so
-# 	echo "LD_PRELOAD set to: $LD_PRELOAD"
-# else
-# 	echo "Error: libtcmalloc.so not found"
-# 	exit 1
-# fi
+		       # Export LD_PRELOAD
+	export LD_PRELOAD=/usr/lib/libtcmalloc.so
+	echo "LD_PRELOAD set to: $LD_PRELOAD"
+else
+	echo "Error: libtcmalloc.so not found"
+	exit 1
+fi
 
 OUTPUT_DIR="${TEST_ARTIFACTS_PATH}/axlearn_out"
 mkdir -p ${OUTPUT_DIR}
@@ -283,7 +283,7 @@ profile() {
 }
 
 if [ "$S3_PROFILE_BASE_PATH" = "" ]; then
-	export S3_PROFILE_BASE_PATH="s3://kaena-tempdata/huilgolr/fs-moe/profiles"
+	export S3_PROFILE_BASE_PATH="s3://kaena-tempdata/akshiaws/fs-moe/profiles"
 fi
 
 if [ "$AXLEARN_PROFILE_MODE" = "capture" ]; then
@@ -310,7 +310,7 @@ else
 
 	if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ]; then
 		if [ $SLURM_PROCID -eq 0 ]; then
-			bash ./upload_profile.sh $SLURM_JOB_ID ${PROFILE_JOB_NAME}_${SLURM_JOB_ID}
+			bash upload_profile.sh $SLURM_JOB_ID ${PROFILE_JOB_NAME}_${SLURM_JOB_ID}
 		fi
 	fi
 	./get_memory_split.sh
