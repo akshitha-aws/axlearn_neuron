@@ -4,25 +4,6 @@ set +e
 # Reload Driver 
 sudo rmmod neuron; sudo modprobe neuron
 
-<<<<<<< HEAD
-./setup_node.sh
-./efa_setup.sh
-
-export AXLEARN_NUM_LAYERS=4
-export AXLEARN_REMAT_LAYER=selective
-export AXLEARN_MODEL_NAME="fuji-70B-v2-flash"
-export AXLEARN_TP_DEGREE=4
-# export AXLEARN_FSDP_DEGREE=128 (fsdp is set to -1)
-export AXLEARN_TRAIN_BATCH_SIZE=16
-export AXLEARN_USE_BLOCKWISE=1
-export AXLEARN_MAX_SEQUENCE_LENGTH=4096
-
-# expects the env to be at ../$VENV_NAME
-VENV_NAME=jaxmoe
-AXLEARN_REPEATED=1
-
-=======
->>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
 # Neuron env vars for distributed training based on SLURM
 nodes=$(scontrol show hostnames "$SLURM_JOB_NODELIST")
 if [ -z "$SLURM_JOB_NODELIST" ]; then
@@ -58,12 +39,7 @@ RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
-<<<<<<< HEAD
-	export NEURON_FSDP_REPEATED_CC_PIPELINING=1
-	export NEURON_FSDP_REPEATED=1 # For RepeatedTransformerLayer
-=======
 	export NEURON_FSDP_REPEATED=1
->>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
 	export NEURON_INTERNAL_CPU_NUM_THREADS=1
 	# ,neuron-token-threading-repeated
 	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
@@ -172,15 +148,9 @@ export TF_CPP_VMODULE="neuron_token_threading=2"
 
 deactivate || true
 
-<<<<<<< HEAD
-# if [ -z "$VENV_NAME" ]; then
-# 	VENV_NAME=jaxmoe
-# fi
-=======
 if [ -z "$VENV_NAME" ]; then
 	VENV_NAME=jaxmoe
 fi
->>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
 
 source ../$VENV_NAME/bin/activate
 
@@ -200,11 +170,7 @@ if [ $SLURM_PROCID -eq 0 ]; then
 	which python
 fi
 # TC MALLOC HACK
-<<<<<<< HEAD
-# LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
-=======
 LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
->>>>>>> 8e4a7821 (de-coupled fuji runner scripts)
  
 if [ -n "$LIBTCMALLOC" ]; then
 	# Create a symbolic link to the found libtcmalloc version
