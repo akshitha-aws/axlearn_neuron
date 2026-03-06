@@ -45,6 +45,7 @@ from axlearn.common.attention import (
     ScaleQuery,
     TransformerLayer,
     StackedTransformerLayer,
+    RepeatedTransformerLayer,
     RematRegexSavePatterns
 )
 from axlearn.common.base_layer import RematSpec
@@ -348,17 +349,20 @@ def _generate_trn2_custom_configs(
         A _Trn2CustomConfig object that contains the generated modifications.
     """
     # TRN2 specific model config modifications.
-    if int(os.getenv("AXLEARN_REPEATED", 0)) == 0:
+    if int(os.getenv("AXLEARN_REPEATED", 0)) == 1:
         trn2_module_modifications = [
-            # Neuron compiler has a module to detect repeating blocks and reuse them during compilation.
-            # So compile time does not grow with the number of layers.
+            ModuleConfigModifier.default_config().set(
+                target_config="model.decoder.transformer",
+                modification=RepeatedTransformerLayer.default_config(),
+            )
+        ]
+    else:
+        trn2_module_modifications = [
             ModuleConfigModifier.default_config().set(
                 target_config="model.decoder.transformer",
                 modification=StackedTransformerLayer.default_config(),
             )
         ]
-    else:
-        trn2_module_modifications = []
 
     trn2_partition_spec_modifications = [
         PartitionSpecModifier.default_config().set(

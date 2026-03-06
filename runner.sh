@@ -36,11 +36,14 @@ PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/profiles
 RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 
 # export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_snapshots"
-
+AXLEARN_REPEATED=1
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
 	export NEURON_FSDP_REPEATED=1
 	export NEURON_INTERNAL_CPU_NUM_THREADS=1
+	export NEURON_FSDP_NUM_LAYER_COALESCE=-1 # coalesce all layers when RepeatedTransformerLayer is used
+	export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=2
+	export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=1
 	# ,neuron-token-threading-repeated
 	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
 else
@@ -54,13 +57,14 @@ else
 		# unset
 		export NEURON_FSDP_NUM_LAYER_LATE_RS_SHIFT=3
 	fi
-	export NEURON_FSDP_NUM_LAYER_COALESCE=-1
+	export NEURON_FSDP_NUM_LAYER_COALESCE=1
 fi
 # 10 also was fast enough for a particular set of nodes
 # export NEURON_REMAT_LARGE_BROADCAST_MIN_SIZE_IN_MB=100
 export NEURON_COLLECTIVE_PERMUTE_TO_ALL_GATHER=1
 export NEURON_ENABLE_INT_MATMUL_DOWNCAST=1
-export NEURON_FSDP_CC_MULTISTREAM=0
+export NEURON_FSDP_CC_MULTISTREAM=1 #enables tp and fsdp collectives on different stream
+export NEURON_FSDP_REPEATED_CC_PIPELINING=1
 export NEURON_RUN_TRIVIAL_COMPUTATION_ON_CPU=1
 export NEURON_HLO_ANALYZER=1
 export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_as_proto"
