@@ -2,35 +2,37 @@ from functools import partial
 
 import jax
 import jax.numpy as jnp
-# TODO(apoorvtintin): remove pytype disable when dependencies are public.
-# pytype: disable=import-error
-# Import needed to enable JAX cache on Neuron.
-import jax_neuronx  # pylint: disable=unused-import
-import neuronxcc.nki.language as nl
 from jax import custom_vjp
 from jax._src.mesh import thread_resources
-
-from neuronxcc.nki._private_kernels.blockwise_mm import (
-        blockwise_mm_selective_cp as blockwise_mm_nki,
-        check_blockwise_mm_kernel_compatibility,
-    )
-from neuronxcc.nki._private_kernels.blockwise_mm_bwd import (
-    blockwise_mm_bwd_selective_cp as blockwise_mm_bwd_nki,
-    # check_blockwise_mm_bwd_kernel_compatibility,
-)
-from neuronxcc.nki.compiler.backends.neuron.dimensions import VNC
-import neuronxcc.nki as nki
-from dataclasses import dataclass
-
 from jax.ad_checkpoint import checkpoint_name
 
-_blockwise_mm_nki_call = nki.jit(show_compiler_tb=True)(blockwise_mm_nki)
-_blockwise_mm_bwd_nki_call = nki.jit(show_compiler_tb=True)(blockwise_mm_bwd_nki)
+# Monkey-patch to fix unhashable list bug in NKI
+import neuronxcc.nki._jax as nki_jax
 
-@dataclass(frozen=True)
-class SkipMode:
-  skip_token: bool
-  skip_weight: bool
+def _patched_hash(self):
+    k = self.kernel
+    grid = tuple(k.grid) if isinstance(k.grid, list) else k.grid
+    return hash((k.func, grid, k.opts))
+
+# Patch module
+nki_jax.JaxTraceResult.__hash__ = _patched_hash
+
+from nkilib.core.moe.moe_cte.moe_cte_utils import SkipMode as FwdSkipMode
+from nkilib.experimental.moe.bwd.moe_bwd_parameters import SkipMode as BwdSkipMode
+from nkilib.experimental.moe.forward.bwmm_shard_on_H import blockwise_mm_baseline_shard_hidden as blockwise_mm_nki
+from nkilib.experimental.moe.bwd.blockwise_mm_backward import blockwise_mm_bwd as blockwise_mm_bwd_nki
+  
+jax.tree_util.register_dataclass(
+    BwdSkipMode,
+    data_fields=[],
+    meta_fields=['skip_token', 'skip_weight']
+)
+
+jax.tree_util.register_dataclass(
+    FwdSkipMode,
+    data_fields=[],
+    meta_fields=['skip_token', 'skip_weight']
+)
 
 Tensor = jax.Array
 lnc = 2 if jax.devices()[0].device_kind == "NC_v3d" else 1
@@ -115,7 +117,16 @@ def _blockwise_mm_fwd(
         hidden_states = jnp.concat([hidden_states, padding_h], axis=0)
         expert_affinities_masked = jnp.concat([expert_affinities_masked, padding_e], axis=0)
         expert_affinities_masked = jnp.reshape(expert_affinities_masked, (-1, 1))
-    out, gate_up_activations_T, down_activations = _blockwise_mm_nki_call[VNC(2)](
+    # Allocate activation buffers for backward pass
+    T, H = hidden_states.shape
+    B = block_size
+    _, _, _, I_TP = gate_up_weight.shape
+    N = token_position_to_id.shape[0] // B
+    
+    gate_up_activations_T = jnp.zeros((N, 2, I_TP, B), dtype=hidden_states.dtype)
+    down_activations = jnp.zeros((N, B, H), dtype=hidden_states.dtype)
+    
+    out = blockwise_mm_nki[2](
         hidden_states,
         expert_affinities_masked,
         gate_up_weight,
@@ -123,7 +134,9 @@ def _blockwise_mm_fwd(
         token_position_to_id,
         block_to_expert,
         block_size=block_size,
-        skip_dma=SkipMode(False, False)
+        gate_up_activations_T=gate_up_activations_T,
+        down_activations=down_activations,
+        skip_dma=FwdSkipMode(False, False),
     )
 
     down_activations = checkpoint_name(down_activations, "blockwise.down_activations")
@@ -149,19 +162,18 @@ def _blockwise_mm_bwd(
         padding_h = jnp.zeros((1, hidden_states.shape[1]), dtype=hidden_states.dtype)
         grad_output = jnp.concat([grad_output, padding_h], axis=0)
         # Compute gradients
-        hidden_states_grad, affinities_grad, gate_up_proj_weight_grad, down_weight_grad = _blockwise_mm_bwd_nki_call[VNC(2)](
+        hidden_states_grad, affinities_grad, gate_up_proj_weight_grad, down_weight_grad = blockwise_mm_bwd_nki[2](
             hidden_states,
             expert_affinities_masked,
             gate_up_proj_weight,
-            gate_up_activations_T,
             down_proj_weight,
+            gate_up_activations_T,
             down_activations,
             token_position_to_id.astype(jnp.int32),
             block_to_expert.astype(jnp.int32),
             grad_output,
             block_size=block_size,
-            skip_dma=SkipMode(False, False),
-            ktype=0 if block_to_expert.shape[-1] == down_proj_weight.shape[0] else 1,
+            skip_dma=BwdSkipMode(False, False),
         )
         sliced_tensor = hidden_states_grad[:-1,:]
         hidden_states_grad = sliced_tensor.reshape(1, 1, -1, H)

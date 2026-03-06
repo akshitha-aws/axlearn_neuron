@@ -36,6 +36,8 @@ PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/profiles
 RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 
 # export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_snapshots"
+export NEURON_PLATFORM_TARGET_OVERRIDE=trn2
+export AXLEARN_USE_BLOCKWISE_MLP_KERNEL=1 # 1 - blockwise_mm (NKI implementation) vs 0 - blockwise_mm_per_group_native (JAX implementation)
 
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
@@ -43,6 +45,7 @@ if [ "$AXLEARN_REPEATED" = "1" ]; then
 	export NEURON_INTERNAL_CPU_NUM_THREADS=1
 	# ,neuron-token-threading-repeated
 	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
+	export NEURON_DISABLE_MOVEMENT_OF_SLICE_FROM_PARAM=1
 else
 	# cancel-all-gather-dynamic-slice-2d
 	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives"
@@ -90,7 +93,7 @@ export OFI_NCCL_MR_CACHE_DISABLE=1
 
 # Neuron compiler flags
 export NEURON_CC_FLAGS="--framework=XLA"
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-max-instruction-limit=30000000"
+export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-max-instruction-limit=20000000"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --target=trn2"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-num-neuroncores-per-sengine=${LNC}"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --model-type transformer"
