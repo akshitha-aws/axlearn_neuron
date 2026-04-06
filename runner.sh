@@ -37,7 +37,7 @@ RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 
 # export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_snapshots"
 export NEURON_PLATFORM_TARGET_OVERRIDE=trn2
-export AXLEARN_USE_BLOCKWISE_MLP_KERNEL=1 # 1 - blockwise_mm (NKI implementation) vs 0 - blockwise_mm_per_group_native (JAX implementation)
+export AXLEARN_USE_BLOCKWISE_MLP_KERNEL=0 # 1 - blockwise_mm (NKI implementation) vs 0 - blockwise_mm_per_group_native (JAX implementation)
 
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
@@ -93,33 +93,36 @@ export OFI_NCCL_MR_CACHE_DISABLE=1
 
 # Neuron compiler flags
 export NEURON_CC_FLAGS="--framework=XLA"
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-max-instruction-limit=20000000"
+# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-max-instruction-limit=20000000"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --target=trn2"
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-num-neuroncores-per-sengine=${LNC}"
+# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-num-neuroncores-per-sengine=${LNC}"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --model-type transformer"
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --no-internal-hlo-remat"
+# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --no-internal-hlo-remat"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --enable-mixed-precision-accumulation"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} -O1"
 
 
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --tensorizer-options='--enable-hoist-fsdp-collectives'"
+# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --tensorizer-options=--enable-hoist-fsdp-collectives"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --auto-cast=none"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --hbm-scratchpad-page-size=1024"
 
-if [ "$AXLEARN_REPEATED" = "1" ]; then
-	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--recursive-layer-det=false --dump-after-to-file=pre-par-pipe-end,post-par-pipe-begin --remat-rope=false --verify-hlo'"
-else
-	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--remat-rope --verify-hlo'"
-fi
+# if [ "$AXLEARN_REPEATED" = "1" ]; then
+# 	true
+# 	# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options=--recursive-layer-det=false --internal-hlo2tensorizer-options=--dump-after-to-file=pre-par-pipe-end,post-par-pipe-begin --internal-hlo2tensorizer-options=--remat-rope=false --internal-hlo2tensorizer-options=--verify-hlo"
+# else
+# 	true
+# 	# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options=--remat-rope --internal-hlo2tensorizer-options=--verify-hlo"
+# fi
 
 if [ "$NEURON_FSDP_CC_MULTISTREAM" = "1" ]; then
-	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-disable-dge-levels spill_reload"
-	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-backend-options='--run-shared-allocation-before-post-sched=true' --ccop-pipeline-buffer-size=2000"
-	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options='--disable-early-opt-barrier-removal'"
+	true
+	# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-disable-dge-levels spill_reload"
+	# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-backend-options=--run-shared-allocation-before-post-sched=true --ccop-pipeline-buffer-size=2000"
+	# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-hlo2tensorizer-options=--disable-early-opt-barrier-removal"
 fi
 
 if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ] || [ "$FOR_PROFILE" = "1" ]; then
-	export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-compiler-debug-mode=penguin"
+	# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-compiler-debug-mode=penguin"
 	export XLA_IR_DEBUG=1
 	export XLA_HLO_DEBUG=1
 	if [ "$AXLEARN_PROFILE_MODE" = "tracerun" ]; then
@@ -139,7 +142,7 @@ if [ "$FOR_BIRSIM" = "1" ]; then
 	export AXLEARN_MAX_STEP=1
 fi
 
-export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --dump=${NEURON_DUMP_PATH}"
+# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --dump=${NEURON_DUMP_PATH}"
 
 # use to add debug logging at module level in xla
 export TF_CPP_MIN_LOG_LEVEL=0
@@ -152,7 +155,7 @@ export TF_CPP_VMODULE="neuron_token_threading=2"
 deactivate || true
 
 if [ -z "$VENV_NAME" ]; then
-	VENV_NAME=jaxmoe
+	VENV_NAME=jaxmoe3
 fi
 
 source ../$VENV_NAME/bin/activate
@@ -172,21 +175,17 @@ if [ $SLURM_PROCID -eq 0 ]; then
 	printenv | grep CUSTOM_TAG | tee -a ${TEST_ARTIFACTS_PATH}/env.txt || true
 	which python
 fi
-# TC MALLOC HACK
-LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
- 
-if [ -n "$LIBTCMALLOC" ]; then
-	# Create a symbolic link to the found libtcmalloc version
-	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
-	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
-		     
-		       # Export LD_PRELOAD
-	export LD_PRELOAD=/usr/lib/libtcmalloc.so
-	echo "LD_PRELOAD set to: $LD_PRELOAD"
-else
-	echo "Error: libtcmalloc.so not found"
-	exit 1
-fi
+# TC MALLOC HACK - disabled due to double-free corruption in neuronx-cc
+# LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
+# 
+# if [ -n "$LIBTCMALLOC" ]; then
+# 	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
+# 	export LD_PRELOAD=/usr/lib/libtcmalloc.so
+# 	echo "LD_PRELOAD set to: $LD_PRELOAD"
+# else
+# 	echo "Error: libtcmalloc.so not found"
+# 	exit 1
+# fi
 
 OUTPUT_DIR="${TEST_ARTIFACTS_PATH}/axlearn_out"
 mkdir -p ${OUTPUT_DIR}

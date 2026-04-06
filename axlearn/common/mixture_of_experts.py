@@ -135,14 +135,17 @@ def blockwise_mlp(
         block_to_expert = block_to_expert.reshape((O*G, 1, 1) + block_to_expert.shape[2:])
     num_local_blocks = block_to_expert.shape[-1]
     block_size = token_position_to_id.shape[-1] // num_local_blocks
+    print("hi")
     if can_use_blockwise_matmul_nki(
         hidden_size=gate_up_proj_weight.shape[1],
         intermediate_size_tp=gate_up_proj_weight.shape[-1],
         block_size=block_size,
         glu_mlp=len(activation_fns) == 2,
     ) and int(os.getenv('AXLEARN_USE_BLOCKWISE_MLP_KERNEL', '1')) == 1:
+        print("blockwise_mm kernel is used")
         blockwise_mlp_per_group = blockwise_mm
     else:
+        print("JAX is used")
         blockwise_mlp_per_group = blockwise_mm_per_group_native
 
     if use_vmap:

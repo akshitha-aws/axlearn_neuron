@@ -108,6 +108,7 @@ def _blockwise_mm_fwd(
         expert_affinities_masked = jnp.squeeze(expert_affinities_masked, axis=(0,1,))
         token_position_to_id = jnp.squeeze(token_position_to_id, axis=(0,1,))
         block_to_expert = jnp.squeeze(block_to_expert, axis=(0,1,))
+        block_to_expert = jnp.reshape(block_to_expert, (-1, 1))  # kernel expects [N, 1]
 
     # add +1 for padding
     with jax.named_scope("add padding"):
@@ -117,25 +118,16 @@ def _blockwise_mm_fwd(
         hidden_states = jnp.concat([hidden_states, padding_h], axis=0)
         expert_affinities_masked = jnp.concat([expert_affinities_masked, padding_e], axis=0)
         expert_affinities_masked = jnp.reshape(expert_affinities_masked, (-1, 1))
-    # Allocate activation buffers for backward pass
-    T, H = hidden_states.shape
-    B = block_size
-    _, _, _, I_TP = gate_up_weight.shape
-    N = token_position_to_id.shape[0] // B
-    
-    gate_up_activations_T = jnp.zeros((N, 2, I_TP, B), dtype=hidden_states.dtype)
-    down_activations = jnp.zeros((N, B, H), dtype=hidden_states.dtype)
-    
-    out = blockwise_mm_nki[2](
+
+    print("blockwise_mm_nki kernel is used")
+    out, gate_up_activations_T, down_activations = blockwise_mm_nki[2](
         hidden_states,
         expert_affinities_masked,
         gate_up_weight,
         down_proj_weight,
+        block_size,
         token_position_to_id,
         block_to_expert,
-        block_size=block_size,
-        gate_up_activations_T=gate_up_activations_T,
-        down_activations=down_activations,
         skip_dma=FwdSkipMode(False, False),
     )
 
@@ -162,6 +154,7 @@ def _blockwise_mm_bwd(
         padding_h = jnp.zeros((1, hidden_states.shape[1]), dtype=hidden_states.dtype)
         grad_output = jnp.concat([grad_output, padding_h], axis=0)
         # Compute gradients
+        print("blockwise_mm_bwd_nki kernel is used")
         hidden_states_grad, affinities_grad, gate_up_proj_weight_grad, down_weight_grad = blockwise_mm_bwd_nki[2](
             hidden_states,
             expert_affinities_masked,

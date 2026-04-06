@@ -83,7 +83,7 @@ MODEL_SIZES = ("test", "Switch-Base", "Switch-Large", "Switch-XXL", "Mistral-8x7
 
 NUM_EXPERTS = {
     "test": 8,
-    "Switch-Base": 128,
+    "Switch-Base": 64,
     "Switch-Large": 128,
     "Switch-XXL": 64,
     "Mistral-8x7B": 8,
@@ -97,7 +97,7 @@ VOCAB_SIZE = 32 * 1024
 
 MAX_SEQUENCE_LENGTH = {
     "test": 8192,
-    "Switch-Base": 8192,
+    "Switch-Base": 4096,
     "Switch-Large": 8192,
     "Switch-XXL": 8192,
     "Mistral-toy": 256,

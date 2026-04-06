@@ -1217,7 +1217,10 @@ class SpmdTrainer(Module):
             # Note(Jan 2022):
             # pjit currently requires all parameters to be specified as positional args.
             lowered_train_step = jit_train_step.lower(trainer_state, input_batch)
-            compiled = lowered_train_step.compile(compiler_options=compiler_options)
+            if compiler_options and jax.default_backend() != "neuron":
+                compiled = lowered_train_step.compile(compiler_options=compiler_options)
+            else:
+                compiled = lowered_train_step.compile()
             logging.log_first_n(logging.INFO, aot_model_analysis(compiled), 1)
             return compiled
 

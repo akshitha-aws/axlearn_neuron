@@ -3,9 +3,15 @@
 """Main function for launching the trainer."""
 
 from absl import app, flags
+from jax.sharding import PartitionSpec
 
 from axlearn.common import launch, launch_trainer, measurement
-from axlearn.common.config import config_for_function
+from axlearn.common.config import config_for_function, register_validator
+
+register_validator(
+    match_fn=lambda v: isinstance(v, PartitionSpec),
+    validate_fn=lambda _: None,
+)
 
 
 def main(_):
