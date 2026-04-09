@@ -39,5 +39,6 @@ export SLURM_PROCID=0
 # to output artifacts at this path ./artifacts/JOB_ID/
 export JOB_ID=base
 rm -rf /fsx/akshiaws/artifacts/$JOB_ID/
+
 bash /fsx/akshiaws/axlearn_neuron/runner.sh
 2>&1 | tee log_$JOB_ID.out

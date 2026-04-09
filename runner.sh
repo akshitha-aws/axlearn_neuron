@@ -39,6 +39,9 @@ RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 export NEURON_PLATFORM_TARGET_OVERRIDE=trn2
 export AXLEARN_USE_BLOCKWISE_MLP_KERNEL=1 # 1 - blockwise_mm (NKI implementation) vs 0 - blockwise_mm_per_group_native (JAX implementation)
 
+export NEURON_PJRT_COMPILE_OPTIONS="dump=/fsx/akshiaws/stablehlo_dump" 
+
+
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
 	export NEURON_FSDP_REPEATED=1
@@ -92,7 +95,8 @@ export FI_EFA_FORK_SAFE=1
 export OFI_NCCL_MR_CACHE_DISABLE=1
 
 # Neuron compiler flags
-export NEURON_CC_FLAGS="--framework=XLA"
+export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --framework=XLA"
+# export NEURON_CC_FLAGS="--framework=XLA"
 # export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-max-instruction-limit=20000000"
 export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --target=trn2"
 # export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --internal-num-neuroncores-per-sengine=${LNC}"
@@ -143,8 +147,10 @@ fi
 # export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --dump=${NEURON_DUMP_PATH}"
 
 # use to add debug logging at module level in xla
-export TF_CPP_MIN_LOG_LEVEL=0
+# export TF_CPP_MIN_LOG_LEVEL=0
+# export TF_CPP_MAX_VLOG_LEVEL=6
 export TF_CPP_VMODULE="neuron_token_threading=2"
+# ,neuronpjrt=1
 
 # JAX Cache
 # export JAX_COMPILATION_CACHE_DIR="cache/"
