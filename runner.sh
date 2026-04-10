@@ -39,8 +39,8 @@ RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
 export NEURON_PLATFORM_TARGET_OVERRIDE=trn2
 export AXLEARN_USE_BLOCKWISE_MLP_KERNEL=1 # 1 - blockwise_mm (NKI implementation) vs 0 - blockwise_mm_per_group_native (JAX implementation)
 
-export NEURON_PJRT_COMPILE_OPTIONS="dump=/fsx/akshiaws/stablehlo_dump" 
-
+# export NEURON_PJRT_COMPILE_OPTIONS="dump=/fsx/akshiaws/stablehlo_dump,no_cache=1" 
+export NEURON_PJRT_COMPILE_OPTIONS="dump=/fsx/akshiaws/stablehlo_dump no_cache=1"
 
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
@@ -143,6 +143,10 @@ if [ "$FOR_BIRSIM" = "1" ]; then
 	export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_snapshots"
 	export AXLEARN_MAX_STEP=1
 fi
+# export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --no_cache=1"
+# export NEURON_COMPILE_CACHE_URL="/fsx/akshiaws/neuron_cache"
+# export NEURON_CC_CACHE_DISABLE=1
+
 
 # export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --dump=${NEURON_DUMP_PATH}"
 
@@ -179,21 +183,21 @@ if [ $SLURM_PROCID -eq 0 ]; then
 	printenv | grep CUSTOM_TAG | tee -a ${TEST_ARTIFACTS_PATH}/env.txt || true
 	which python
 fi
-# TC MALLOC HACK
-LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
+# # TC MALLOC HACK
+# LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
  
-if [ -n "$LIBTCMALLOC" ]; then
-	# Create a symbolic link to the found libtcmalloc version
-	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
-	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
+# if [ -n "$LIBTCMALLOC" ]; then
+# 	# Create a symbolic link to the found libtcmalloc version
+# 	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
+# 	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
 		     
-		       # Export LD_PRELOAD
-	export LD_PRELOAD=/usr/lib/libtcmalloc.so
-	echo "LD_PRELOAD set to: $LD_PRELOAD"
-else
-	echo "Error: libtcmalloc.so not found"
-	exit 1
-fi
+# 		       # Export LD_PRELOAD
+# 	export LD_PRELOAD=/usr/lib/libtcmalloc.so
+# 	echo "LD_PRELOAD set to: $LD_PRELOAD"
+# else
+# 	echo "Error: libtcmalloc.so not found"
+# 	exit 1
+# fi
 
 OUTPUT_DIR="${TEST_ARTIFACTS_PATH}/axlearn_out"
 mkdir -p ${OUTPUT_DIR}
