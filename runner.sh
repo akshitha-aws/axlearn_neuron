@@ -172,21 +172,22 @@ if [ $SLURM_PROCID -eq 0 ]; then
 	printenv | grep CUSTOM_TAG | tee -a ${TEST_ARTIFACTS_PATH}/env.txt || true
 	which python
 fi
-# TC MALLOC HACK
-LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
+
+# # TC MALLOC HACK
+# LIBTCMALLOC=$(find /usr/lib/x86_64-linux-gnu -name "libtcmalloc.so.*" | sort -V | tail -n 1)
  
-if [ -n "$LIBTCMALLOC" ]; then
-	# Create a symbolic link to the found libtcmalloc version
-	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
-	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
+# if [ -n "$LIBTCMALLOC" ]; then
+# 	# Create a symbolic link to the found libtcmalloc version
+# 	sudo ln -sf "$LIBTCMALLOC" /usr/lib/libtcmalloc.so
+# 	echo "Symbolic link created: /usr/lib/libtcmalloc.so -> $LIBTCMALLOC"
 		     
-		       # Export LD_PRELOAD
-	export LD_PRELOAD=/usr/lib/libtcmalloc.so
-	echo "LD_PRELOAD set to: $LD_PRELOAD"
-else
-	echo "Error: libtcmalloc.so not found"
-	exit 1
-fi
+# 		       # Export LD_PRELOAD
+# 	export LD_PRELOAD=/usr/lib/libtcmalloc.so
+# 	echo "LD_PRELOAD set to: $LD_PRELOAD"
+# else
+# 	echo "Error: libtcmalloc.so not found"
+# 	exit 1
+# fi
 
 OUTPUT_DIR="${TEST_ARTIFACTS_PATH}/axlearn_out"
 mkdir -p ${OUTPUT_DIR}
