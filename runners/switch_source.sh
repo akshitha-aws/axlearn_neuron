@@ -22,7 +22,7 @@ export EP_WITHIN_NODE=1
 # export AXLEARN_PROFILE_MODE="tracerun"
 # export NEURON_RT_LOCAL_CORE_DUMP_DIRECTORY=""
 
-# export NEURON_PROFILE=/fsx/akshiaws/artifacts/$JOB_ID/ntff_output
+# export NEURON_PROFILE=/shared/akshiaws/artifacts/$JOB_ID/ntff_output
 
 if [ "${AXLEARN_SEQ_DEGREE:-0}" -gt 1 ]; then
     export AXLEARN_FLASH_ATTENTION=0
@@ -38,7 +38,7 @@ export VENV_NAME=akshiaws/jaxmoe3
 export SLURM_PROCID=0
 # to output artifacts at this path ./artifacts/JOB_ID/
 export JOB_ID=base
-rm -rf /fsx/akshiaws/artifacts/$JOB_ID/
+rm -rf /shared/akshiaws/artifacts/$JOB_ID/
 
-bash /fsx/akshiaws/axlearn_neuron/runner.sh
+bash /shared/akshiaws/axlearn_neuron/runner.sh
 2>&1 | tee log_$JOB_ID.out

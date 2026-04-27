@@ -94,8 +94,11 @@ def _blockwise_mm_fwd(
         expert_affinities_masked = jnp.squeeze(expert_affinities_masked, axis=(0,1,))
         token_position_to_id = jnp.squeeze(token_position_to_id, axis=(0,1,))
         block_to_expert = jnp.squeeze(block_to_expert, axis=(0,1,))
-        block_to_expert = jnp.reshape(block_to_expert, (-1, 1))
-
+        # Remap global expert IDs to local device indices
+        # To prevent block_to_expert indices from OOB error
+        min_expert_id = jnp.min(block_to_expert)
+        block_to_expert = block_to_expert - min_expert_id
+         
     with jax.named_scope("add padding"):
         padding_h = jnp.zeros((1, hidden_states.shape[1]), dtype=hidden_states.dtype)
         padding_e = jnp.zeros((1, expert_affinities_masked.shape[1]), dtype=expert_affinities_masked.dtype)

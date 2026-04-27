@@ -34,13 +34,14 @@ NEURON_DUMP_PATH=${TEST_ARTIFACTS_PATH}/neuron_dump
 HLO_DUMP_PATH=${TEST_ARTIFACTS_PATH}/hlo_dump
 PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/profiles
 RT_PROFILE_DUMP_PATH=${TEST_ARTIFACTS_PATH}/rt_profiles
+export NEURON_DUMP_PATH=/shared/akshiaws/neuron_dump
 
 # export XLA_FLAGS="${XLA_FLAGS} --xla_dump_hlo_snapshots"
 export NEURON_PLATFORM_TARGET_OVERRIDE=trn2
 export AXLEARN_USE_BLOCKWISE_MLP_KERNEL=1 # 1 - blockwise_mm (NKI implementation) vs 0 - blockwise_mm_per_group_native (JAX implementation)
 
 # export NEURON_PJRT_COMPILE_OPTIONS="dump=/fsx/akshiaws/stablehlo_dump,no_cache=1" 
-export NEURON_PJRT_COMPILE_OPTIONS="dump=/fsx/akshiaws/stablehlo_dump no_cache=1"
+export NEURON_PJRT_COMPILE_OPTIONS="dump=/shared/akshiaws/stablehlo_dump no_cache=1"
 
 # PJRT Flags 
 if [ "$AXLEARN_REPEATED" = "1" ]; then
@@ -48,10 +49,10 @@ if [ "$AXLEARN_REPEATED" = "1" ]; then
 	export NEURON_INTERNAL_CPU_NUM_THREADS=1
 	export NEURON_DISABLE_MOVEMENT_OF_SLICE_FROM_PARAM=1
 	# ,neuron-token-threading-repeated
-	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
+	export XLA_FLAGS="${XLA_FLAGS} --xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives,neuron_move_all_gather_while_loop,neuron-fixed-point-collectives-combiner"
 else
 	# cancel-all-gather-dynamic-slice-2d
-	export XLA_FLAGS="--xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives"
+	export XLA_FLAGS="${XLA_FLAGS} --xla_disable_hlo_passes=aws_neuron_flip_all_gather_dot,neuron-hierarchical-collectives"
 	export NEURON_FSDP_NUM_LAYER_EARLY_AG_SHIFT=2
 	export NEURON_FSDP=1
 	if [ -n "$CUSTOM_TAG_rsshift" ]; then
@@ -144,8 +145,9 @@ if [ "$FOR_BIRSIM" = "1" ]; then
 	export AXLEARN_MAX_STEP=1
 fi
 # export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --no_cache=1"
-# export NEURON_COMPILE_CACHE_URL="/fsx/akshiaws/neuron_cache"
+# export NEURON_COMPILE_CACHE_URL="/shared/akshiaws/neuron_cache"
 # export NEURON_CC_CACHE_DISABLE=1
+export NKI_COMPILE_CACHE_URL="/shared/akshiaws/nki-cache"
 
 
 # export NEURON_CC_FLAGS="${NEURON_CC_FLAGS} --dump=${NEURON_DUMP_PATH}"
